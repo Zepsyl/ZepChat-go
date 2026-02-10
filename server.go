@@ -1,67 +1,35 @@
 package main
 
 import (
-    "bufio"
-    "fmt"
-    "net"
-    "sync"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
 )
 
-var (
-    clients = make(map[net.Conn]bool)
-    clientsMu sync.Mutex
-)
+func chatHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		// Read the message using the modern io.ReadAll function
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Error reading body", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
 
-func broadcast(message string, sender net.Conn) {
-    clientsMu.Lock()
-    defer clientsMu.Unlock()
-    for client := range clients {
-        if client != sender {
-            fmt.Fprintln(client, message)
-        }
-    }
-}
-
-func handleConnection(conn net.Conn) {
-    defer func() {
-        clientsMu.Lock()
-        delete(clients, conn)
-        clientsMu.Unlock()
-        conn.Close()
-        broadcast("A client has disconnected.", conn)
-        fmt.Println("Client disconnected:", conn.RemoteAddr())
-    }()
-
-    clientsMu.Lock()
-    clients[conn] = true
-    clientsMu.Unlock()
-    broadcast("A new client has connected.", conn)
-    fmt.Println("Client connected:", conn.RemoteAddr())
-
-    scanner := bufio.NewScanner(conn)
-    for scanner.Scan() {
-        msg := scanner.Text()
-        fmt.Printf("Received from %s: %s\n", conn.RemoteAddr(), msg)
-        broadcast(fmt.Sprintf("%s says: %s", conn.RemoteAddr(), msg), conn)
-    }
+		// Print message to console
+		fmt.Printf("[Message]: %s\n", string(body))
+		fmt.Fprintln(w, "Message received!")
+	} else {
+		fmt.Fprintln(w, "Send a POST request with your message.")
+	}
 }
 
 func main() {
-    listener, err := net.Listen("tcp", ":8080")
-    if err != nil {
-        fmt.Println("Error starting server:", err)
-        return
-    }
-    defer listener.Close()
-
-    fmt.Println("Server listening on port 8080...")
-
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            fmt.Println("Error accepting connection:", err)
-            continue
-        }
-        go handleConnection(conn)
-    }
+	http.HandleFunc("/chat", chatHandler)
+	port := "8080"
+	log.Printf("Chat server starting on :%s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatal(err)
+	}
 }
