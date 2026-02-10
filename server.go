@@ -9,7 +9,6 @@ import (
 
 func chatHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		// Read the message using the modern io.ReadAll function
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Error reading body", http.StatusInternalServerError)
@@ -19,7 +18,7 @@ func chatHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Print message to console
 		fmt.Printf("[Message]: %s\n", string(body))
-		fmt.Fprintln(w, "Message received!")
+		fmt.Fprintln(w, string(body))
 	} else {
 		fmt.Fprintln(w, "Send a POST request with your message.")
 	}
